@@ -1,2 +1,38 @@
 ---
 # tasks file for egeneralov.systemd-networkd
+
+- name: place networking units
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/network/{{ item }}"
+  with_items:
+    - br0.netdev
+    - br0.network
+    - en.network
+  register: tpl
+
+
+- name: enable new networking units
+  systemd:
+    name: "{{ item }}"
+    state: "{% if tpl is changed %}restarted{% else %}started{% endif %}"
+    enabled: yes
+  with_items:
+    - systemd-networkd.service
+    - systemd-resolved.service
+
+
+- name: disable old networking.service
+  systemd:
+    name: networking.service
+    state: stopped
+    enabled: no
+
+
+- name: link resolv.conf
+  file:
+    src: /run/systemd/resolve/resolv.conf
+    dest: /etc/resolv.conf
+    force: yes
+    state: link
+  register: tpl
